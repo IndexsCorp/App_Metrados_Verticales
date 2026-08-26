@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Metrado - Columnas y Placas</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card-container { max-width: 1200px; margin: 30px auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .nav-tabs .nav-link.active { font-weight: bold; color: #0d6efd; border-bottom: 3px solid #0d6efd; }
+        .nav-tabs .nav-link { color: #555; }
+        .form-label { font-weight: 600; font-size: 0.9rem; color: #333; }
+        .table-acero th { font-size: 0.85rem; text-align: center; vertical-align: middle; background-color: #e9ecef; }
+        .table-acero td { padding: 0.3rem; }
+        .table-acero input, .table-acero select { font-size: 0.85rem; padding: 0.25rem 0.5rem; }
+        .btn-siguiente { margin-top: 20px; }
+        #loader { display: none; color: #0d6efd; font-weight: bold; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid card-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary mb-0"><i class="bi bi-building"></i> Registro de Metrado - Columnas y Placas</h2>
+        <div id="loader">⏳ Cargando datos de Google Sheets...</div>
+    </div>
+    
+    <!-- PESTAÑAS (TABS) -->
+    <ul class="nav nav-tabs mb-4" id="metradoTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="identificacion-tab" data-bs-toggle="tab" data-bs-target="#identificacion" type="button" role="tab">1. Identificación</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="geometria-tab" data-bs-toggle="tab" data-bs-target="#geometria" type="button" role="tab">2. Geometría, Concreto y Encofrado</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="acero-tab" data-bs-toggle="tab" data-bs-target="#acero" type="button" role="tab">3. Despiece de Acero</button>
+        </li>
+    </ul>
+
+    <!-- CONTENIDO DE LAS PESTAÑAS -->
+    <div class="tab-content" id="metradoTabsContent">
+        
+        <!-- ================= PESTAÑA 1: IDENTIFICACIÓN ================= -->
+        <div class="tab-pane fade show active" id="identificacion" role="tabpanel">
+            <h5 class="mb-3 text-secondary">Datos del Elemento</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" id="tipo" onchange="generarId()">
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="nombre" placeholder="Ej: C-1" oninput="generarId()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Etapa</label>
+                    <select class="form-select" id="etapa" onchange="generarId()">
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-primary">ID Elemento (Auto)</label>
+                    <input type="text" class="form-control bg-light" id="id_elemento" placeholder="Se generará solo..." readonly>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Nivel Superior</label>
+                    <input class="form-control" list="list_niveles_sup" id="nivel_superior" placeholder="Buscar o elegir..." oninput="actualizarNiveles()">
+                    <datalist id="list_niveles_sup"></datalist>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nivel Inferior</label>
+                    <input class="form-control" list="list_niveles_inf" id="nivel_inferior" placeholder="Buscar o elegir..." oninput="actualizarNiveles()">
+                    <datalist id="list_niveles_inf"></datalist>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">N° Pisos (Rango)</label>
+                    <input type="number" class="form-control" id="n_pisos" value="1" min="1" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" title="Número de elementos iguales por piso">Nx_Piso (N° Elem. x Piso)</label>
+                    <input type="number" class="form-control" id="nx_piso" value="1" min="1">
+                </div>
+            </div> <!-- Cierre del row -->
+            
+            <div class="d-flex justify-content-between btn-siguiente mt-4 pt-3 border-top">
+                <button type="button" class="btn btn-outline-primary" onclick="nextTab('geometria-tab')">Siguiente: Geometría ></button>
+                <button type="button" class="btn btn-success" onclick="guardarElemento()">💾 Guardar Metrado Completo</button>
+            </div>
+        </div> <!-- CIERRE CORRECTO PESTAÑA 1 -->
+
+        <!-- ================= PESTAÑA 2: GEOMETRÍA, CONCRETO Y ENCOFRADO ================= -->
+        <div class="tab-pane fade" id="geometria" role="tabpanel">
+            <h5 class="mb-2 text-secondary">Datos Físicos del Elemento</h5>
+            <!-- BANNER DEL ELEMENTO ACTUAL -->
+            <div class="alert alert-primary py-2 mb-3 shadow-sm border-primary border-start border-4">
+                <strong>Elemento Actual:</strong> <span id="lbl_id_2" class="text-dark">Seleccione en Pestaña 1...</span>
+            </div>
+                
+            <div class="row g-3">
+                <!-- BLOQUE 1: GEOMETRÍA (SECCIÓN) -->
+                <div class="col-12"><h6 class="text-primary mt-2 border-bottom pb-1">1. Geometría de la Sección</h6></div>
+                
+                <div class="col-md-6">
+                    <label class="form-label text-info">📋 Copiar Sección Existente (Opcional)</label>
+                    <select class="form-select border-info" id="cargar_seccion" onchange="cargarSeccionExistente()">
+                        <option value="">-- Nueva Sección (Llenado Manual) --</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label text-primary">Id_Seccion</label>
+                    <input type="text" class="form-control border-primary" id="id_seccion" placeholder="Ej: COL-40X40">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Base (m)</label>
+                    <input type="number" step="0.01" class="form-control" id="base" placeholder="0.00" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Largo (m)</label>
+                    <input type="number" step="0.01" class="form-control" id="largo" placeholder="0.00" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Área Manual (m2)</label>
+                    <input type="number" step="0.01" class="form-control bg-warning bg-opacity-10" id="area_man" placeholder="Opcional" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Perím. Manual (m)</label>
+                    <input type="number" step="0.01" class="form-control bg-warning bg-opacity-10" id="perimetro_man" placeholder="Opcional" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-success">Área Calculada (m2)</label>
+                    <input type="number" step="0.01" class="form-control bg-light text-success" id="area_calc" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-success">Perímetro Calc. (m)</label>
+                    <input type="number" step="0.01" class="form-control bg-light text-success" id="perimetro" readonly>
+                </div>
+
+                <!-- BLOQUE 2: CONCRETO -->
+                <div class="col-12"><h6 class="text-primary mt-3 border-bottom pb-1">2. Datos de Concreto</h6></div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">F'c (kg/cm2)</label>
+                    <select class="form-select" id="fc">
+                        <option value="">Seleccione...</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Cimentación (m)</label>
+                    <input type="number" step="0.01" class="form-control" id="cimentacion" value="0.00" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-primary">H_Concreto (m)</label>
+                    <input type="number" step="0.01" class="form-control bg-light text-primary" id="h_concreto" readonly>
+                </div>
+
+                <!-- BLOQUE 3: ENCOFRADO -->
+                <div class="col-12"><h6 class="text-primary mt-3 border-bottom pb-1">3. Datos de Encofrado</h6></div>
+                
+                <div class="col-md-3">
+                    <label class="form-label" title="¿Elemento continuo a través de los pisos?">Partición (Por Pisos)</label>
+                    <select class="form-select border-primary" id="particion" onchange="calcularGeometria()">
+                        <option value="NO">NO (Vaciado único)</option>
+                        <option value="SI">SÍ (Multiniveles)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Descuento Sup. (m)</label>
+                    <input type="number" step="0.01" class="form-control" id="descuento_enc" value="0.00" oninput="calcularGeometria()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-primary">H_Encofrado (m)</label>
+                    <input type="number" step="0.01" class="form-control bg-light text-primary" id="h_encofrado" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo Encofrado (Auto)</label>
+                    <input type="text" class="form-control bg-light font-weight-bold" id="tipo_encofrado" readonly>
+                </div>
+            </div> <!-- Cierre del row -->
+            
+            <div class="d-flex justify-content-between btn-siguiente mt-4 pt-3 border-top">
+                <button type="button" class="btn btn-outline-secondary" onclick="nextTab('identificacion-tab')">< Anterior</button>
+                <button type="button" class="btn btn-success" onclick="guardarElemento()">💾 Guardar Metrado Completo</button>
+                <button type="button" class="btn btn-outline-primary" onclick="nextTab('acero-tab')">Siguiente: Acero ></button>
+            </div>
+        </div> <!-- CIERRE CORRECTO PESTAÑA 2 -->
+
+        <!-- ================= PESTAÑA 3: ACERO ================= -->
+        <div class="tab-pane fade" id="acero" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="text-secondary mb-0">Despiece de Acero</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleColumnasExtras()" id="btnToggleCols">Mostrar C-Z</button>
+                    <button class="btn btn-sm btn-success" onclick="agregarFilaAcero()">+ Agregar Fila</button>
+                </div>
+            </div>
+            <!-- BANNER DEL ELEMENTO ACTUAL -->
+            <div class="alert alert-primary py-2 mb-3 shadow-sm border-primary border-start border-4">
+                <strong>Elemento Actual:</strong> <span id="lbl_id_3" class="text-dark">Seleccione en Pestaña 1...</span>
+            </div>
+
+            <!-- Datalist oculto que alimentará a todas las filas -->
+            <datalist id="datalist_id_acero"></datalist>
+            
+            <div class="table-responsive" style="overflow-x: auto;">
+                <table class="table table-bordered table-acero" id="tablaAcero" style="min-width: 1300px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">N°</th>
+                            <th style="width: 110px;">Tipo Acero</th>
+                            <th style="width: 100px;">Id Acero</th>
+                            <th style="width: 80px;">Ø</th>
+                            <th style="width: 60px;">Doble</th>
+                            <th style="width: 80px;">Lado/H</th>
+                            <th style="width: 60px;">@</th>
+                            <th style="width: 60px;">N° Sim</th>
+                            <th style="width: 70px;">Forma</th>
+                            <th style="width: 65px;">A (m)</th>
+                            <th style="width: 65px;">B (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">C (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">D (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">Des (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">X (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">Y (m)</th>
+                            <th class="col-extra d-none" style="width: 65px;">Z (m)</th>
+                            <th style="width: 65px;">Desc(m)</th>
+                            <th style="width: 70px;">N° Estr</th>
+                            <th style="width: 60px;">Emp?</th>
+                            <th style="width: 70px;">N° Emp</th>
+                            <th style="width: 80px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyAcero">
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between btn-siguiente mt-4 pt-3 border-top">
+                <button type="button" class="btn btn-outline-secondary" onclick="nextTab('geometria-tab')">< Anterior</button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="guardarElemento()">💾 Guardar Metrado Completo</button>
+            </div>
+        </div> <!-- CIERRE CORRECTO PESTAÑA 3 -->
+
+    </div> <!-- CIERRE DEL CONTENEDOR DE PESTAÑAS (tab-content) -->
+</div> <!-- CIERRE DEL CARD CONTAINER -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // ==========================================
+    // 🔗 URL DE GOOGLE APPS SCRIPT
+    // ==========================================
+    const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwFwwFDHXA1IlTQzOofA2wwLSSom3mft8mLLM53B-kQ2KIRT8FLam37SlLTWbuRMk6q/exec";
+
+    // Variables Globales
+    let contadorAcero = 0;
+    let diccionarioNPT = {}; 
+    let diccionarioSecciones = {};
+    let arregloNiveles = []; // Orden de pisos para auto-cálculo
+    let diccionarioPlantillasAcero = {};
+    let acerosGlobal = []; // Guarda toda la Bd_Acero para buscar los perfiles
+
+    function nextTab(tabId) {
+        var triggerEl = document.querySelector('#' + tabId);
+        var tab = new bootstrap.Tab(triggerEl);
+        tab.show();
+    }
+
+    // Auto-calcula la cantidad de pisos al cambiar los niveles en Pestaña 1
+    function actualizarNiveles() {
+        const nivelSup = document.getElementById('nivel_superior').value.toUpperCase().trim();
+        const nivelInf = document.getElementById('nivel_inferior').value.toUpperCase().trim();
+
+        let indexSup = arregloNiveles.indexOf(nivelSup);
+        let indexInf = arregloNiveles.indexOf(nivelInf);
+
+        if (indexSup !== -1 && indexInf !== -1) {
+            let cantidadPisos = Math.abs(indexSup - indexInf);
+            if (cantidadPisos > 0) {
+                document.getElementById('n_pisos').value = cantidadPisos;
+            }
+        }
+
+        generarId();
+        calcularGeometria();
+    }
+
+    // Calcular Área, Perímetro, Alturas y Encofrado
+    function calcularGeometria() {
+        const base = parseFloat(document.getElementById('base').value) || 0;
+        const largo = parseFloat(document.getElementById('largo').value) || 0;
+        const areaMan = document.getElementById('area_man').value;
+        const perimetroMan = document.getElementById('perimetro_man').value;
+        
+        const cimentacion = parseFloat(document.getElementById('cimentacion').value) || 0;
+        const descSup = parseFloat(document.getElementById('descuento_enc').value) || 0;
+        const particion = document.getElementById('particion').value;
+        const nPisos = parseInt(document.getElementById('n_pisos').value) || 1;
+        
+        const nivelSup = document.getElementById('nivel_superior').value.toUpperCase().trim();
+        const nivelInf = document.getElementById('nivel_inferior').value.toUpperCase().trim();
+
+        // 1. Área
+        if (areaMan !== "" && !isNaN(areaMan)) {
+            document.getElementById('area_calc').value = parseFloat(areaMan).toFixed(2);
+        } else {
+            document.getElementById('area_calc').value = (base * largo).toFixed(2);
+        }
+
+        // 2. Perímetro
+        if (perimetroMan !== "" && !isNaN(perimetroMan)) {
+            document.getElementById('perimetro').value = parseFloat(perimetroMan).toFixed(2);
+        } else {
+            document.getElementById('perimetro').value = (2 * (base + largo)).toFixed(2);
+        }
+
+        // 3. Altura Concreto 
+        let nptSup = diccionarioNPT[nivelSup] !== undefined ? diccionarioNPT[nivelSup] : parseFloat(nivelSup);
+        let nptInf = diccionarioNPT[nivelInf] !== undefined ? diccionarioNPT[nivelInf] : parseFloat(nivelInf);
+
+        let hConcreto = 0;
+        if (!isNaN(nptSup) && !isNaN(nptInf)) {
+            hConcreto = (nptSup - nptInf) - cimentacion;
+            document.getElementById('h_concreto').value = hConcreto > 0 ? hConcreto.toFixed(2) : "0.00";
+        } else {
+            document.getElementById('h_concreto').value = "";
+        }
+
+        // 4. Altura Encofrado
+        let hEncofrado = 0;
+        if (hConcreto > 0) {
+            const multiplicador = (particion === "SI") ? nPisos : 1;
+            hEncofrado = hConcreto - (descSup * multiplicador);
+            document.getElementById('h_encofrado').value = hEncofrado > 0 ? hEncofrado.toFixed(2) : "0.00";
+        } else {
+            document.getElementById('h_encofrado').value = "";
+        }
+
+        // 5. Tipo de Encofrado
+        const inputTipoEnc = document.getElementById('tipo_encofrado');
+        if (hEncofrado <= 0) {
+            inputTipoEnc.value = "";
+        } else if (particion === "SI") {
+            inputTipoEnc.value = "Simple";
+        } else {
+            if (hEncofrado < 3.6) inputTipoEnc.value = "Simple";
+            else if (hEncofrado >= 3.6 && hEncofrado < 5) inputTipoEnc.value = "Doble";
+            else inputTipoEnc.value = "Triple";
+        }
+    }
+
+    // Cargar datos de una sección existente
+    function cargarSeccionExistente() {
+        const idSeccionElegida = document.getElementById('cargar_seccion').value;
+        
+        if (idSeccionElegida && diccionarioSecciones[idSeccionElegida]) {
+            const datosSec = diccionarioSecciones[idSeccionElegida];
+            document.getElementById('id_seccion').value = idSeccionElegida;
+            document.getElementById('base').value = datosSec.Base;
+            document.getElementById('largo').value = datosSec.Largo;
+            document.getElementById('area_man').value = datosSec.Area_Man;
+            document.getElementById('perimetro_man').value = datosSec.Perimetro_Man || "";
+        } else {
+            document.getElementById('id_seccion').value = "";
+            document.getElementById('base').value = "";
+            document.getElementById('largo').value = "";
+            document.getElementById('area_man').value = "";
+            document.getElementById('perimetro_man').value = "";
+        }
+        calcularGeometria();
+    }
+
+    function generarId() {
+        const tipoVal = document.getElementById('tipo').value;
+        const nombre = document.getElementById('nombre').value.toUpperCase().trim();
+        const etapaVal = document.getElementById('etapa').value;
+        const nivelSup = document.getElementById('nivel_superior').value.toUpperCase().trim();
+        const nivelInf = document.getElementById('nivel_inferior').value.toUpperCase().trim();
+        
+        const tipo = tipoVal ? tipoVal.substring(0,3).toUpperCase() : "";
+        const etapa = etapaVal ? etapaVal.substring(0,3).toUpperCase() : "";
+        
+        if (tipo && nombre && etapa && nivelSup && nivelInf) {
+            const idGenerado = `${tipo}_${nombre}_${nivelSup}-${nivelInf}_${etapa}`;
+            document.getElementById('id_elemento').value = idGenerado;
+            
+            // Escribe el ID en los banners de las Pestañas 2 y 3
+            document.getElementById('lbl_id_2').innerText = idGenerado;
+            document.getElementById('lbl_id_3').innerText = idGenerado;
+        } else {
+            document.getElementById('id_elemento').value = ""; 
+            document.getElementById('lbl_id_2').innerText = "Seleccione en Pestaña 1...";
+            document.getElementById('lbl_id_3').innerText = "Seleccione en Pestaña 1...";
+        }
+    }
+
+    const opcionesDiametro = `
+        <option value="6 mm">6 mm</option><option value="8 mm">8 mm</option><option value="12 mm">12 mm</option>
+        <option value="1/4&quot;">1/4"</option><option value="3/8&quot;">3/8"</option>
+        <option value="1/2&quot;" selected>1/2"</option><option value="5/8&quot;">5/8"</option>
+        <option value="3/4&quot;">3/4"</option><option value="1&quot;">1"</option>
+        <option value="1 3/8&quot;">1 3/8"</option>
+    `;
+
+    function agregarFilaAcero() {
+        contadorAcero++;
+        const tbody = document.getElementById('tbodyAcero');
+        const tr = document.createElement('tr');
+        tr.id = `fila_acero_${contadorAcero}`;
+        
+        tr.innerHTML = `
+            <td class="text-center font-weight-bold row-num">${contadorAcero}</td>
+            <td>
+                <select class="form-select form-select-sm" name="tipo_acero" onchange="aplicarReglasAcero(this)">
+                    <option value="">Seleccione...</option>
+                    <option value="Vertical">Vertical</option><option value="Estribo">Estribo</option>
+                    <option value="Malla Vert">Malla Vert</option><option value="Malla Trans">Malla Trans</option>
+                    <option value="Refuerzo Vert">Refuerzo Vert</option><option value="Refuerzo Trans">Refuerzo Trans</option>
+                </select>
+            </td>
+            <td><input type="text" class="form-control form-control-sm border-info" name="id_acero" list="datalist_id_acero" onchange="cargarPerfilAcero(this)" placeholder="Elegir o Crear"></td>
+            <td><select class="form-select form-select-sm" name="diametro">${opcionesDiametro}</select></td>
+            <td><select class="form-select form-select-sm" name="doble"><option value="No">No</option><option value="Si">Sí</option></select></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm" name="lado" placeholder="Cant/Lado"></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm" name="espaciamiento" value="1"></td>
+            <td><input type="number" step="1" class="form-control form-control-sm" name="n_acero_sim" value="1"></td>
+            <td><select class="form-select form-select-sm" name="forma"><option value="I">I</option><option value="L">L</option><option value="[">[</option><option value="[]">[]</option></select></td>
+            
+            <td><input type="number" step="0.01" class="form-control form-control-sm" name="a" placeholder="A"></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm" name="b" placeholder="B"></td>
+            
+            <!-- Columnas ocultas de la C a la Z -->
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="c" placeholder="C"></td>
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="d" placeholder="0"></td>
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="desarrollo" placeholder="0"></td>
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="x" placeholder="0"></td>
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="y" placeholder="0"></td>
+            <td class="col-extra d-none"><input type="number" step="0.01" class="form-control form-control-sm" name="z" placeholder="0"></td>
+            
+            <td><input type="number" step="0.01" class="form-control form-control-sm" name="descuento" value="0"></td>
+            <td><input type="number" step="1" class="form-control form-control-sm" name="n_estribos" value="0"></td>
+            <td><select class="form-select form-select-sm" name="empalme_man"><option value="No">No</option><option value="Si">Sí</option></select></td>
+            <td><input type="number" step="1" class="form-control form-control-sm" name="n_empalme_man" value="0"></td>
+            
+            <td class="text-center">
+                <button class="btn btn-sm btn-warning text-dark fw-bold mb-1" onclick="guardarFilaComoPerfil(this)" title="Guardar en Maestro">💾 M</button>
+                <button class="btn btn-sm btn-info text-white mb-1" onclick="duplicarFila(this)" title="Duplicar">📋</button>
+                <button class="btn btn-sm btn-danger mb-1" onclick="eliminarFila('${tr.id}')" title="Eliminar">X</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function aplicarReglasAcero(selectElement) {
+        const fila = selectElement.closest('tr');
+        const tipoAcero = selectElement.value;
+        const hConcreto = document.getElementById('h_concreto').value;
+
+        // Capturar los inputs de esta fila
+        const inputDoble = fila.querySelector('[name="doble"]');
+        const inputLado = fila.querySelector('[name="lado"]');
+        const inputEspaciamiento = fila.querySelector('[name="espaciamiento"]');
+        const inputForma = fila.querySelector('[name="forma"]');
+        const inputA = fila.querySelector('[name="a"]');
+        const inputNEstribos = fila.querySelector('[name="n_estribos"]');
+
+        // Limpiar bloqueos previos
+        inputDoble.disabled = false;
+        inputEspaciamiento.disabled = false;
+        inputNEstribos.disabled = false;
+
+        // Aplicar reglas
+        switch (tipoAcero) {
+            case "Vertical":
+                inputDoble.value = "No"; inputDoble.disabled = true;
+                inputEspaciamiento.value = "1"; inputEspaciamiento.disabled = true;
+                inputA.value = hConcreto || "";
+                inputNEstribos.value = "0"; inputNEstribos.disabled = true;
+                break;
+            case "Estribo":
+                inputDoble.value = "No"; inputDoble.disabled = true;
+                inputLado.value = hConcreto || "";
+                inputForma.value = "[]";
+                // N_Estribos se mantiene habilitado
+                break;
+            case "Malla Vert":
+                inputA.value = hConcreto || "";
+                inputNEstribos.value = "0"; inputNEstribos.disabled = true;
+                break;
+            case "Malla Trans":
+                inputLado.value = hConcreto || "";
+                inputNEstribos.value = "0"; inputNEstribos.disabled = true;
+                break;
+            case "Refuerzo Vert":
+                inputNEstribos.value = "0"; inputNEstribos.disabled = true;
+                break;
+            case "Refuerzo Trans":
+                // Corregido: Ya no jala el H_Concreto al Lado
+                inputNEstribos.value = "0"; inputNEstribos.disabled = true;
+                break;
+        }
+    }
+
+    // Botón Ocultar/Mostrar Columnas D-Z
+    function toggleColumnasExtras() {
+        const columnas = document.querySelectorAll('.col-extra');
+        const btn = document.getElementById('btnToggleCols');
+        columnas.forEach(col => col.classList.toggle('d-none'));
+        btn.innerText = btn.innerText.includes("Mostrar") ? "Ocultar Columnas D-Z" : "Mostrar Columnas D-Z";
+    }
+
+    // Duplicar una fila de acero existente
+    function duplicarFila(btn) {
+        const filaOriginal = btn.closest('tr');
+        agregarFilaAcero(); // Agrega una nueva fila limpia al final
+        const nuevaFila = document.getElementById(`fila_acero_${contadorAcero}`);
+        
+        // Copia los valores (inputs y selects)
+        const inputsOriginal = filaOriginal.querySelectorAll('input, select');
+        const inputsNueva = nuevaFila.querySelectorAll('input, select');
+        inputsOriginal.forEach((input, index) => {
+            inputsNueva[index].value = input.value;
+        });
+    }
+
+    function eliminarFila(idFila) { document.getElementById(idFila).remove(); }
+
+    window.onload = function() {
+        agregarFilaAcero(); 
+        cargarDatosMaestros();
+    };
+
+    async function cargarDatosMaestros() {
+        if (!URL_APPS_SCRIPT.includes("script.google.com")) return;
+        document.getElementById('loader').style.display = 'block';
+        try {
+            const response = await fetch(`${URL_APPS_SCRIPT}?accion=obtenerDatosMaestros`);
+            const datos = await response.json();
+            if (datos.error) throw new Error(datos.error);
+            poblarListas(datos);
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert("Error conectando a BD: " + error.message);
+        }
+    }
+
+    function poblarListas(datos) {
+        document.getElementById('loader').style.display = 'none';
+        const config = datos.configuracion; 
+        const niveles = datos.niveles;      
+        const secciones = datos.secciones || [];
+        acerosGlobal = datos.aceros_maestro || []; // Lee tu nueva hoja maestra
+
+        let setTipos = new Set(); let setEtapas = new Set(); let setFc = new Set();
+        let nivelesSup = []; let nivelesInfCim = []; let nivelesInfTecho = []; 
+
+        // Llenar Plantillas de Sección
+        const selectSeccion = document.getElementById('cargar_seccion');
+        secciones.forEach(sec => {
+            if (sec.Id_Seccion) {
+                diccionarioSecciones[sec.Id_Seccion] = {
+                    Base: sec.Base || "", Largo: sec.Largo || "", 
+                    Area_Man: sec.Area_Man || "", Perimetro_Man: sec.Perimetro_Man || ""
+                };
+                let opt = document.createElement('option');
+                opt.value = sec.Id_Seccion; opt.text = sec.Id_Seccion;
+                selectSeccion.appendChild(opt);
+            }
+        });
+
+        // Llenar el Datalist oculto con Id_Acero únicos
+        let setIdAceros = new Set();
+        acerosGlobal.forEach(row => {
+            if (row.Id_Acero && row.Id_Acero.toString().trim() !== "") {
+                setIdAceros.add(row.Id_Acero.toString().trim().toUpperCase());
+            }
+        });
+        llenarDatalist('datalist_id_acero', Array.from(setIdAceros));
+
+        // Llenar Configuración y Niveles
+        config.forEach(row => {
+            if (row.Tipo) setTipos.add(row.Tipo);
+            if (row.Etapa) setEtapas.add(row.Etapa);
+            if (row.Concreto) setFc.add(row.Concreto);
+        });
+
+        niveles.forEach(row => {
+            if (row.Nivel_Fijo) {
+                if (!nivelesSup.includes(row.Nivel_Fijo)) { 
+                    nivelesSup.push(row.Nivel_Fijo); 
+                    nivelesInfTecho.push(row.Nivel_Fijo); 
+                    arregloNiveles.push(row.Nivel_Fijo); 
+                }
+                diccionarioNPT[row.Nivel_Fijo] = parseFloat(row.Npt) || 0; 
+            }
+            if (row.Nivel_Cimentacion) {
+                if (!nivelesInfCim.includes(row.Nivel_Cimentacion)) { nivelesInfCim.push(row.Nivel_Cimentacion); }
+                diccionarioNPT[row.Nivel_Cimentacion] = parseFloat(row.Npt_Cim) || 0; 
+            }
+        });
+
+        llenarSelect('tipo', setTipos); llenarSelect('etapa', setEtapas); llenarSelect('fc', setFc);
+        llenarDatalist('list_niveles_sup', nivelesSup);
+        llenarDatalist('list_niveles_inf', [...nivelesInfCim, ...nivelesInfTecho]);
+    }
+
+    function llenarSelect(id, setDatos) {
+        const select = document.getElementById(id);
+        select.innerHTML = '<option value="">Seleccione...</option>';
+        setDatos.forEach(v => { let opt = document.createElement('option'); opt.value = v; opt.text = v; select.appendChild(opt); });
+    }
+    function llenarDatalist(id, arrDatos) {
+        const datalist = document.getElementById(id);
+        datalist.innerHTML = '';
+        arrDatos.forEach(v => { let opt = document.createElement('option'); opt.value = v; datalist.appendChild(opt); });
+    }
+
+    async function guardarElemento() {
+        const id_elemento = document.getElementById('id_elemento').value;
+        if(!id_elemento) return alert("Faltan datos para generar el ID (Llene todos los campos de Identificación).");
+
+        // Captura variables repetitivas
+        const nivelSup = document.getElementById('nivel_superior').value;
+        const nivelInf = document.getElementById('nivel_inferior').value;
+        const particionVal = document.getElementById('particion').value;
+        const nPisosVal = parseInt(document.getElementById('n_pisos').value) || 1;
+
+        // --- NUEVA LÓGICA: RECOLECTAR FILAS DE ACERO ---
+        const filasAcero = document.querySelectorAll('#tbodyAcero tr');
+        let arrayAcero = [];
+        
+        filasAcero.forEach(fila => {
+            let objetoAcero = {
+                Tipo_Acero: fila.querySelector('[name="tipo_acero"]').value,
+                Id_Acero: fila.querySelector('[name="id_acero"]').value.toUpperCase().trim(),
+                Diametro: fila.querySelector('[name="diametro"]').value,
+                Doble: fila.querySelector('[name="doble"]').value,
+                Lado: parseFloat(fila.querySelector('[name="lado"]').value) || 0,
+                Espaciamiento: parseFloat(fila.querySelector('[name="espaciamiento"]').value) || 1,
+                N_Acero_Sim: parseInt(fila.querySelector('[name="n_acero_sim"]').value) || 1,
+                Forma: fila.querySelector('[name="forma"]').value,
+                A: parseFloat(fila.querySelector('[name="a"]').value) || 0,
+                B: parseFloat(fila.querySelector('[name="b"]').value) || 0,
+                C: parseFloat(fila.querySelector('[name="c"]').value) || 0,
+                D: parseFloat(fila.querySelector('[name="d"]').value) || 0,
+                Desarrollo: parseFloat(fila.querySelector('[name="desarrollo"]').value) || 0,
+                X: parseFloat(fila.querySelector('[name="x"]').value) || 0,
+                Y: parseFloat(fila.querySelector('[name="y"]').value) || 0,
+                Z: parseFloat(fila.querySelector('[name="z"]').value) || 0,
+                N_Estribos: parseInt(fila.querySelector('[name="n_estribos"]').value) || 0,
+                EmpalmeMan: fila.querySelector('[name="empalme_man"]').value,
+                N_EmpalmeMan: parseInt(fila.querySelector('[name="n_empalme_man"]').value) || 0,
+                Descuento: parseFloat(fila.querySelector('[name="descuento"]').value) || 0
+            };
+            arrayAcero.push(objetoAcero);
+        });
+
+        // --- CONSTRUCCIÓN DEL PAYLOAD GENERAL ---
+        const payload = {
+            accion: "guardarMetrado",
+            elemento: {
+                Id_Elemento: id_elemento,
+                Nombre: document.getElementById('nombre').value.toUpperCase().trim(),
+                Tipo: document.getElementById('tipo').value,
+                Etapa: document.getElementById('etapa').value,
+                Rango: nivelSup + " a " + nivelInf,
+                N_Piso: nPisosVal,
+                Nx_Piso: document.getElementById('nx_piso').value
+            },
+            seccion: {
+                Id_Seccion: document.getElementById('id_seccion').value.toUpperCase().trim(),
+                Base: document.getElementById('base').value,
+                Largo: document.getElementById('largo').value,
+                Area_Man: document.getElementById('area_man').value,
+                Perimetro: document.getElementById('perimetro').value
+            },
+            concreto: {
+                Id_Elemento: id_elemento,
+                Fc: document.getElementById('fc').value,
+                Id_Seccion: document.getElementById('id_seccion').value.toUpperCase().trim(),
+                Base: document.getElementById('base').value,
+                Largo: document.getElementById('largo').value,
+                Area_Man: document.getElementById('area_man').value,
+                Niv_Sup: nivelSup,
+                Niv_Inf: nivelInf,
+                Cimentacion: document.getElementById('cimentacion').value,
+                Resta_Npts: (diccionarioNPT[nivelSup] - diccionarioNPT[nivelInf]) || 0 
+            },
+            encofrado: {
+                Id_Elemento: id_elemento,
+                Id_Seccion: document.getElementById('id_seccion').value.toUpperCase().trim(),
+                Base: document.getElementById('base').value,
+                Largo: document.getElementById('largo').value,
+                Perimetro_Man: document.getElementById('perimetro_man').value,
+                Desc_Sup: document.getElementById('descuento_enc').value,
+                Niv_Sup: nivelSup,
+                Niv_Inf: nivelInf,
+                Particion: particionVal,
+                Tipo_Encofrado: document.getElementById('tipo_encofrado').value,
+                H_Concreto_Fijo: document.getElementById('h_concreto').value, 
+                Multiplicador_Desc: (particionVal === "SI") ? nPisosVal : 1
+            },
+            acero: arrayAcero // <-- AQUÍ INSERTAMOS LA CAJA DE ACERO
+        };
+
+        if (!URL_APPS_SCRIPT.includes("script.google.com")) {
+            alert("Modo Local:\n" + JSON.stringify(payload, null, 2));
+            return;
+        }
+
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loader').innerText = "Guardando Datos Completos...";
+
+        try {
+            const response = await fetch(URL_APPS_SCRIPT, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+            
+            const res = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('loader').innerText = "⏳ Cargando datos de Google Sheets...";
+            
+            if(res.error) throw new Error(res.error);
+            alert(res.mensaje);
+
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert("Error al guardar: " + error.message);
+        }
+    }
+    
+    // --- FUNCIÓN PARA AUTOCOMPLETAR LA FILA DESDE EL MAESTRO ---
+    function cargarPerfilAcero(input) {
+        const fila = input.closest('tr');
+        const tipoAcero = fila.querySelector('[name="tipo_acero"]').value;
+        const idAcero = input.value.toUpperCase().trim();
+
+        if (!tipoAcero || !idAcero) return;
+
+        const perfil = acerosGlobal.find(row => 
+            (row.Tipo_Acero || "").toUpperCase() === tipoAcero.toUpperCase() && 
+            (row.Id_Acero || "").toString().toUpperCase().trim() === idAcero
+        );
+
+        if (perfil) {
+            if(perfil.Doble) fila.querySelector('[name="doble"]').value = perfil.Doble;
+            if(perfil.Lado !== "") fila.querySelector('[name="lado"]').value = perfil.Lado;
+            if(perfil.Espaciamiento !== "") fila.querySelector('[name="espaciamiento"]').value = perfil.Espaciamiento;
+            if(perfil.A !== "") fila.querySelector('[name="a"]').value = perfil.A;
+            if(perfil.N_Estribos !== "") fila.querySelector('[name="n_estribos"]').value = perfil.N_Estribos;
+
+            aplicarReglasAcero(fila.querySelector('[name="tipo_acero"]'));
+            
+            input.classList.add('bg-success', 'bg-opacity-10');
+            setTimeout(() => input.classList.remove('bg-success', 'bg-opacity-10'), 800);
+        }
+    }
+
+    async function guardarFilaComoPerfil(btn) {
+        const fila = btn.closest('tr');
+        const tipoAcero = fila.querySelector('[name="tipo_acero"]').value;
+        const idAcero = fila.querySelector('[name="id_acero"]').value.toUpperCase().trim();
+
+        if (!tipoAcero || !idAcero) {
+            return alert("Seleccione Tipo de Acero y escriba un Id_Acero para guardar el perfil.");
+        }
+
+        let perfil = {
+            Tipo_Acero: tipoAcero,
+            Id_Acero: idAcero,
+            Doble: fila.querySelector('[name="doble"]').value,
+            Lado: fila.querySelector('[name="lado"]').value,
+            Espaciamiento: fila.querySelector('[name="espaciamiento"]').value,
+            A: fila.querySelector('[name="a"]').value,
+            N_Estribos: fila.querySelector('[name="n_estribos"]').value
+        };
+
+        // Lógica de matriz: Vaciamos campos que no deben ser fijos en la plantilla
+        if (tipoAcero === "Vertical") {
+            perfil.Doble = "No"; perfil.Espaciamiento = "1"; perfil.A = ""; perfil.N_Estribos = "0";
+        } else if (tipoAcero === "Estribo") {
+            perfil.Doble = "No"; perfil.Lado = ""; 
+        } else if (tipoAcero.includes("Malla") || tipoAcero.includes("Refuerzo")) {
+            perfil.Lado = ""; perfil.A = ""; perfil.N_Estribos = "0"; 
+        }
+
+        const payload = { accion: "guardarPerfilAcero", perfil: perfil };
+
+        btn.innerText = "⏳";
+        btn.disabled = true;
+        try {
+            const response = await fetch(URL_APPS_SCRIPT, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+            const res = await response.json();
+            alert(res.mensaje);
+            cargarDatosMaestros(); // Recarga la memoria silenciosamente
+        } catch (error) {
+            alert("Error: " + error.message);
+        }
+        btn.innerText = "💾 M"; 
+        btn.disabled = false;
+    }
+</script>
+</body>
+</html>
