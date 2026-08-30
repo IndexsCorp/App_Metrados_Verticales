@@ -165,10 +165,12 @@
                 
                 <div class="col-md-3">
                     <label class="form-label" title="¿Elemento continuo a través de los pisos?">Partición (Por Pisos)</label>
-                    <select class="form-select border-primary" id="particion" onchange="calcularGeometria()">
-                        <option value="NO">NO (Vaciado único)</option>
-                        <option value="SI">SÍ (Multiniveles)</option>
+                    <select class="form-select" id="particion" onchange="calcularGeometria()">
+                        <option value="SÍ (Multiniveles)">SÍ (Multiniveles)</option>
+                        <option value="NO">NO</option>
                     </select>
+
+                    <input type="number" class="form-control" id="descuento_enc" oninput="calcularGeometria()">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Descuento Sup. (m)</label>
@@ -308,7 +310,9 @@
         
         const cimentacion = parseFloat(document.getElementById('cimentacion').value) || 0;
         const descSup = parseFloat(document.getElementById('descuento_enc').value) || 0;
-        const particion = document.getElementById('particion').value;
+        
+        // Convertimos a mayúsculas para evitar errores si el HTML dice "SÍ" o "SI"
+        const particion = document.getElementById('particion').value.toUpperCase(); 
         const nPisos = parseInt(document.getElementById('n_pisos').value) || 1;
         
         const nivelSup = document.getElementById('nivel_superior').value.toUpperCase().trim();
@@ -328,25 +332,33 @@
             document.getElementById('perimetro').value = (2 * (base + largo)).toFixed(2);
         }
 
-        // 3. Altura Concreto (POR PISO)
+        // 3. Altura Concreto (Lógica de Partición)
         let nptSup = diccionarioNPT[nivelSup] !== undefined ? diccionarioNPT[nivelSup] : parseFloat(nivelSup);
         let nptInf = diccionarioNPT[nivelInf] !== undefined ? diccionarioNPT[nivelInf] : parseFloat(nivelInf);
 
         let hConcretoTotal = 0;
-        let hConcretoPiso = 0;
+        let hConcretoCalculado = 0;
+
         if (!isNaN(nptSup) && !isNaN(nptInf)) {
             hConcretoTotal = (nptSup - nptInf) - cimentacion;
-            hConcretoPiso = hConcretoTotal / nPisos; // <--- SE DIVIDE ENTRE N° PISOS
-            document.getElementById('h_concreto').value = hConcretoPiso > 0 ? hConcretoPiso.toFixed(2) : "0.00";
+            
+            // 🔥 LA MAGIA: Si NO hay partición (vaciado monolítico de doble altura), NO divide.
+            if (particion.includes("NO")) {
+                hConcretoCalculado = hConcretoTotal;
+            } else {
+                // Si es SÍ (Multiniveles), divide entre N° Pisos
+                hConcretoCalculado = hConcretoTotal / nPisos; 
+            }
+            
+            document.getElementById('h_concreto').value = hConcretoCalculado > 0 ? hConcretoCalculado.toFixed(2) : "0.00";
         } else {
             document.getElementById('h_concreto').value = "";
         }
 
-        // 4. Altura Encofrado (POR PISO)
+        // 4. Altura Encofrado
         let hEncofrado = 0;
-        if (hConcretoPiso > 0) {
-            // Al ser altura de 1 solo piso, el descuento de losa se resta 1 sola vez
-            hEncofrado = hConcretoPiso - descSup;
+        if (hConcretoCalculado > 0) {
+            hEncofrado = hConcretoCalculado - descSup;
             document.getElementById('h_encofrado').value = hEncofrado > 0 ? hEncofrado.toFixed(2) : "0.00";
         } else {
             document.getElementById('h_encofrado').value = "";
@@ -356,16 +368,20 @@
         const inputTipoEnc = document.getElementById('tipo_encofrado');
         if (hEncofrado <= 0) {
             inputTipoEnc.value = "";
-        } else if (particion === "SI") {
+        } else if (particion.includes("SI") || particion.includes("SÍ")) {
+            // Si está particionado por pisos, asumimos altura estándar (Simple)
             inputTipoEnc.value = "Simple";
         } else {
+            // Si NO está particionado, evaluamos la altura real del elemento completo
             if (hEncofrado < 3.6) inputTipoEnc.value = "Simple";
             else if (hEncofrado >= 3.6 && hEncofrado < 5) inputTipoEnc.value = "Doble";
             else inputTipoEnc.value = "Triple";
         }
 
-        // 🔥 NUEVO: Sincroniza la tabla de acero con la nueva altura calculada
-        actualizarAlturasAceroGlobal();
+        // 6. Sincroniza la tabla de acero con la nueva altura calculada
+        if (typeof actualizarAlturasAceroGlobal === "function") {
+            actualizarAlturasAceroGlobal();
+        }
     }
 
     // Cargar datos de una sección existente
