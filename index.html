@@ -257,7 +257,7 @@
     // ==========================================
     // 🔗 URL DE GOOGLE APPS SCRIPT
     // ==========================================
-    const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzATXEZSx0-fYXLy-hPDd3mCw5PUb-AunbpuiyB4M8KsfnJi78itwyVGBqJMY4VyPzh/exec";
+    const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycby46t6MTkT7E6RdK6H8dm_nv_SdPWO4Y_afPW1cCakt5UNgyMO3XI9iFq1RGZ9iqU2_/exec";
 
     // Variables Globales
     let contadorAcero = 0;
@@ -321,23 +321,25 @@
             document.getElementById('perimetro').value = (2 * (base + largo)).toFixed(2);
         }
 
-        // 3. Altura Concreto 
+        // 3. Altura Concreto (POR PISO)
         let nptSup = diccionarioNPT[nivelSup] !== undefined ? diccionarioNPT[nivelSup] : parseFloat(nivelSup);
         let nptInf = diccionarioNPT[nivelInf] !== undefined ? diccionarioNPT[nivelInf] : parseFloat(nivelInf);
 
-        let hConcreto = 0;
+        let hConcretoTotal = 0;
+        let hConcretoPiso = 0;
         if (!isNaN(nptSup) && !isNaN(nptInf)) {
-            hConcreto = (nptSup - nptInf) - cimentacion;
-            document.getElementById('h_concreto').value = hConcreto > 0 ? hConcreto.toFixed(2) : "0.00";
+            hConcretoTotal = (nptSup - nptInf) - cimentacion;
+            hConcretoPiso = hConcretoTotal / nPisos; // <--- SE DIVIDE ENTRE N° PISOS
+            document.getElementById('h_concreto').value = hConcretoPiso > 0 ? hConcretoPiso.toFixed(2) : "0.00";
         } else {
             document.getElementById('h_concreto').value = "";
         }
 
-        // 4. Altura Encofrado
+        // 4. Altura Encofrado (POR PISO)
         let hEncofrado = 0;
-        if (hConcreto > 0) {
-            const multiplicador = (particion === "SI") ? nPisos : 1;
-            hEncofrado = hConcreto - (descSup * multiplicador);
+        if (hConcretoPiso > 0) {
+            // Al ser altura de 1 solo piso, el descuento de losa se resta 1 sola vez
+            hEncofrado = hConcretoPiso - descSup;
             document.getElementById('h_encofrado').value = hEncofrado > 0 ? hEncofrado.toFixed(2) : "0.00";
         } else {
             document.getElementById('h_encofrado').value = "";
@@ -464,20 +466,22 @@
     function aplicarReglasAcero(selectElement) {
         const fila = selectElement.closest('tr');
         const tipoAcero = selectElement.value;
-        const hConcreto = document.getElementById('h_concreto').value;
+        
+        // 🔥 LÓGICA CORREGIDA: Calcula la altura de un solo piso
+        const hTotal = parseFloat(document.getElementById('h_concreto').value) || 0;
+        const nPisos = parseInt(document.getElementById('n_pisos').value) || 1;
+        const hPorPiso = hTotal > 0 ? (hTotal / nPisos).toFixed(2) : "";
 
-        // --- NUEVO: FILTRAR DATALIST SEGÚN TIPO_ACERO ---
+        // Filtrar datalist dinámico
         const datalist = fila.querySelector('datalist');
-        datalist.innerHTML = ''; // Limpiamos opciones anteriores
+        datalist.innerHTML = ''; 
         if (tipoAcero) {
             let opcionesFiltradas = new Set();
             acerosGlobal.forEach(row => {
-                // Si el Tipo_Acero coincide, agregamos su Id_Acero a la lista
                 if ((row.Tipo_Acero || "").toUpperCase() === tipoAcero.toUpperCase() && row.Id_Acero && row.Id_Acero.toString().trim() !== "") {
                     opcionesFiltradas.add(row.Id_Acero.toString().trim().toUpperCase());
                 }
             });
-            // Llenamos el datalist de esta fila específica
             opcionesFiltradas.forEach(val => {
                 let opt = document.createElement('option');
                 opt.value = val;
@@ -485,7 +489,6 @@
             });
         }
 
-        // Capturar los inputs de esta fila
         const inputDoble = fila.querySelector('[name="doble"]');
         const inputLado = fila.querySelector('[name="lado"]');
         const inputEspaciamiento = fila.querySelector('[name="espaciamiento"]');
@@ -493,30 +496,29 @@
         const inputA = fila.querySelector('[name="a"]');
         const inputNEstribos = fila.querySelector('[name="n_estribos"]');
 
-        // Limpiar bloqueos previos
         inputDoble.disabled = false;
         inputEspaciamiento.disabled = false;
         inputNEstribos.disabled = false;
 
-        // Aplicar reglas de bloqueo
+        // Inyectamos 'hPorPiso' en lugar de la altura total
         switch (tipoAcero) {
             case "Vertical":
                 inputDoble.value = "No"; inputDoble.disabled = true;
                 inputEspaciamiento.value = "1"; inputEspaciamiento.disabled = true;
-                inputA.value = hConcreto || "";
+                inputA.value = hPorPiso;
                 inputNEstribos.value = "0"; inputNEstribos.disabled = true;
                 break;
             case "Estribo":
                 inputDoble.value = "No"; inputDoble.disabled = true;
-                inputLado.value = hConcreto || "";
+                inputLado.value = hPorPiso;
                 inputForma.value = "[]";
                 break;
             case "Malla Vert":
-                inputA.value = hConcreto || "";
+                inputA.value = hPorPiso;
                 inputNEstribos.value = "0"; inputNEstribos.disabled = true;
                 break;
             case "Malla Trans":
-                inputLado.value = hConcreto || "";
+                inputLado.value = hPorPiso;
                 inputNEstribos.value = "0"; inputNEstribos.disabled = true;
                 break;
             case "Refuerzo Vert":
@@ -676,7 +678,7 @@
                 Z: parseFloat(fila.querySelector('[name="z"]').value) || 0,
                 N_Estribos: parseInt(fila.querySelector('[name="n_estribos"]').value) || 0,
                 EmpalmeMan: fila.querySelector('[name="empalme_man"]').value,
-                N_EmpalmeMan: parseInt(fila.querySelector('[name="n_empalme_man"]').value) || 0,
+                N_EmpalmeMan: parseInt(fila.querySelector('[name="n_empalme_man"]').value) || 0, // <--- DIRECTO DE LA PANTALLA
                 Descuento: parseFloat(fila.querySelector('[name="descuento"]').value) || 0
             };
             arrayAcero.push(objetoAcero);
@@ -711,7 +713,7 @@
                 Niv_Sup: nivelSup,
                 Niv_Inf: nivelInf,
                 Cimentacion: document.getElementById('cimentacion').value,
-                Resta_Npts: (diccionarioNPT[nivelSup] - diccionarioNPT[nivelInf]) || 0 
+                N_Pisos: nPisosVal // <--- AÑADE ESTA LÍNEA PARA QUE EL EXCEL PUEDA DIVIDIR
             },
             encofrado: {
                 Id_Elemento: id_elemento,
