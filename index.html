@@ -425,7 +425,10 @@
                     <option value="Refuerzo Vert">Refuerzo Vert</option><option value="Refuerzo Trans">Refuerzo Trans</option>
                 </select>
             </td>
-            <td><input type="text" class="form-control form-control-sm border-info" name="id_acero" list="datalist_id_acero" onchange="cargarPerfilAcero(this)" placeholder="Elegir o Crear"></td>
+            <td>
+                <input type="text" class="form-control form-control-sm border-info" name="id_acero" list="datalist_acero_${contadorAcero}" onchange="cargarPerfilAcero(this)" placeholder="Elegir o Crear">
+                <datalist id="datalist_acero_${contadorAcero}"></datalist>
+            </td>
             <td><select class="form-select form-select-sm" name="diametro">${opcionesDiametro}</select></td>
             <td><select class="form-select form-select-sm" name="doble"><option value="No">No</option><option value="Si">Sí</option></select></td>
             <td><input type="number" step="0.01" class="form-control form-control-sm" name="lado" placeholder="Cant/Lado"></td>
@@ -463,6 +466,25 @@
         const tipoAcero = selectElement.value;
         const hConcreto = document.getElementById('h_concreto').value;
 
+        // --- NUEVO: FILTRAR DATALIST SEGÚN TIPO_ACERO ---
+        const datalist = fila.querySelector('datalist');
+        datalist.innerHTML = ''; // Limpiamos opciones anteriores
+        if (tipoAcero) {
+            let opcionesFiltradas = new Set();
+            acerosGlobal.forEach(row => {
+                // Si el Tipo_Acero coincide, agregamos su Id_Acero a la lista
+                if ((row.Tipo_Acero || "").toUpperCase() === tipoAcero.toUpperCase() && row.Id_Acero && row.Id_Acero.toString().trim() !== "") {
+                    opcionesFiltradas.add(row.Id_Acero.toString().trim().toUpperCase());
+                }
+            });
+            // Llenamos el datalist de esta fila específica
+            opcionesFiltradas.forEach(val => {
+                let opt = document.createElement('option');
+                opt.value = val;
+                datalist.appendChild(opt);
+            });
+        }
+
         // Capturar los inputs de esta fila
         const inputDoble = fila.querySelector('[name="doble"]');
         const inputLado = fila.querySelector('[name="lado"]');
@@ -476,7 +498,7 @@
         inputEspaciamiento.disabled = false;
         inputNEstribos.disabled = false;
 
-        // Aplicar reglas
+        // Aplicar reglas de bloqueo
         switch (tipoAcero) {
             case "Vertical":
                 inputDoble.value = "No"; inputDoble.disabled = true;
@@ -488,7 +510,6 @@
                 inputDoble.value = "No"; inputDoble.disabled = true;
                 inputLado.value = hConcreto || "";
                 inputForma.value = "[]";
-                // N_Estribos se mantiene habilitado
                 break;
             case "Malla Vert":
                 inputA.value = hConcreto || "";
@@ -502,7 +523,6 @@
                 inputNEstribos.value = "0"; inputNEstribos.disabled = true;
                 break;
             case "Refuerzo Trans":
-                // Corregido: Ya no jala el H_Concreto al Lado
                 inputNEstribos.value = "0"; inputNEstribos.disabled = true;
                 break;
         }
