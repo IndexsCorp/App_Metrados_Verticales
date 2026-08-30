@@ -752,10 +752,13 @@
         );
 
         if (perfil) {
+            // Se inyectan Diametro y B
+            if(perfil.Diametro) fila.querySelector('[name="diametro"]').value = perfil.Diametro;
             if(perfil.Doble) fila.querySelector('[name="doble"]').value = perfil.Doble;
             if(perfil.Lado !== "") fila.querySelector('[name="lado"]').value = perfil.Lado;
             if(perfil.Espaciamiento !== "") fila.querySelector('[name="espaciamiento"]').value = perfil.Espaciamiento;
             if(perfil.A !== "") fila.querySelector('[name="a"]').value = perfil.A;
+            if(perfil.B !== "") fila.querySelector('[name="b"]').value = perfil.B;
             if(perfil.N_Estribos !== "") fila.querySelector('[name="n_estribos"]').value = perfil.N_Estribos;
 
             aplicarReglasAcero(fila.querySelector('[name="tipo_acero"]'));
@@ -774,13 +777,16 @@
             return alert("Seleccione Tipo de Acero y escriba un Id_Acero para guardar el perfil.");
         }
 
+        // Se capturan Diametro y B
         let perfil = {
             Tipo_Acero: tipoAcero,
             Id_Acero: idAcero,
+            Diametro: fila.querySelector('[name="diametro"]').value,
             Doble: fila.querySelector('[name="doble"]').value,
             Lado: fila.querySelector('[name="lado"]').value,
             Espaciamiento: fila.querySelector('[name="espaciamiento"]').value,
             A: fila.querySelector('[name="a"]').value,
+            B: fila.querySelector('[name="b"]').value,
             N_Estribos: fila.querySelector('[name="n_estribos"]').value
         };
 
