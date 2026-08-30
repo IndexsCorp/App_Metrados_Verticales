@@ -281,10 +281,17 @@
         let indexSup = arregloNiveles.indexOf(nivelSup);
         let indexInf = arregloNiveles.indexOf(nivelInf);
 
-        if (indexSup !== -1 && indexInf !== -1) {
-            let cantidadPisos = Math.abs(indexSup - indexInf);
-            if (cantidadPisos > 0) {
-                document.getElementById('n_pisos').value = cantidadPisos;
+        if (nivelSup !== "" && nivelInf !== "") {
+            // Regla Estructural: Si el nivel inferior es Cimentación (ej. contiene "CIM") 
+            // o no es un piso típico, el tramo de arranque abarca exactamente 1 piso.
+            if (indexInf === -1 || nivelInf.includes("CIM")) {
+                document.getElementById('n_pisos').value = 1;
+            } 
+            else if (indexSup !== -1 && indexInf !== -1) {
+                // Si ambos son niveles típicos, calcula la diferencia
+                let cantidadPisos = Math.abs(indexSup - indexInf);
+                // Si eligen el mismo nivel por error, forzamos mínimo a 1
+                document.getElementById('n_pisos').value = cantidadPisos > 0 ? cantidadPisos : 1; 
             }
         }
 
@@ -356,6 +363,9 @@
             else if (hEncofrado >= 3.6 && hEncofrado < 5) inputTipoEnc.value = "Doble";
             else inputTipoEnc.value = "Triple";
         }
+
+        // 🔥 NUEVO: Sincroniza la tabla de acero con la nueva altura calculada
+        actualizarAlturasAceroGlobal();
     }
 
     // Cargar datos de una sección existente
