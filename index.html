@@ -467,10 +467,8 @@
         const fila = selectElement.closest('tr');
         const tipoAcero = selectElement.value;
         
-        // 🔥 LÓGICA CORREGIDA: Calcula la altura de un solo piso
-        const hTotal = parseFloat(document.getElementById('h_concreto').value) || 0;
-        const nPisos = parseInt(document.getElementById('n_pisos').value) || 1;
-        const hPorPiso = hTotal > 0 ? (hTotal / nPisos).toFixed(2) : "";
+        // Toma directamente el valor de la caja H_Concreto (que YA fue dividida por el N° de pisos en calcularGeometria)
+        const hPorPiso = document.getElementById('h_concreto').value;
 
         // Filtrar datalist dinámico
         const datalist = fila.querySelector('datalist');
@@ -500,7 +498,7 @@
         inputEspaciamiento.disabled = false;
         inputNEstribos.disabled = false;
 
-        // Inyectamos 'hPorPiso' en lugar de la altura total
+        // Inyectamos 'hPorPiso' directo
         switch (tipoAcero) {
             case "Vertical":
                 inputDoble.value = "No"; inputDoble.disabled = true;
