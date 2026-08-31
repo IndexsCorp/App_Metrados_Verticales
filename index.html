@@ -382,6 +382,26 @@
         }
     }
 
+    // Actualiza en tiempo real las cotas A y Lado de todas las filas de acero existentes
+    function actualizarAlturasAceroGlobal() {
+        const hPorPiso = document.getElementById('h_concreto').value;
+        const filasAcero = document.querySelectorAll('#tbodyAcero tr');
+
+        filasAcero.forEach(fila => {
+            const tipoAcero = fila.querySelector('[name="tipo_acero"]').value;
+            const inputLado = fila.querySelector('[name="lado"]');
+            const inputA = fila.querySelector('[name="a"]');
+
+            if (!tipoAcero) return; // Salta si la fila está vacía
+
+            if (tipoAcero === "Vertical" || tipoAcero === "Malla Vert") {
+                inputA.value = hPorPiso;
+            } else if (tipoAcero === "Estribo" || tipoAcero === "Malla Trans") {
+                inputLado.value = hPorPiso;
+            }
+        });
+    }
+
     // Cargar datos de una sección existente
     function cargarSeccionExistente() {
         const idSeccionElegida = document.getElementById('cargar_seccion').value;
